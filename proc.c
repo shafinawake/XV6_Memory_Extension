@@ -532,3 +532,10 @@ procdump(void)
     cprintf("\n");
   }
 }
+//printing the system call
+int 
+demo(void)
+{
+  cprintf("Demo");
+  return 22;
+}
