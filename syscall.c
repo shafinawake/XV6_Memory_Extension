@@ -158,7 +158,7 @@ sys_memstats(void)
   getmemstats(p, &shared, &private_pg, &modified);
   
   // Print formatted output
-  cprintf("=== Child Memory Divergence Tracker (CMDT) ===\n");
+  cprintf("Child Memory Divergence Tracker (CMDT)\n");
   cprintf("Process: %s (PID: %d)\n", p->name, p->pid);
   
   if(p->parent_pid > 0)
@@ -168,7 +168,7 @@ sys_memstats(void)
   cprintf("Private pages:  %d\n", private_pg);
   cprintf("Modified pages: %d\n", modified);
   cprintf("Total pages:    %d\n", shared + private_pg);
-  cprintf("===========================================\n");
+  cprintf("\n");
   
   return 0;
 }
