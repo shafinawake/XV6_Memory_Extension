@@ -386,6 +386,7 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 }
 
 // Count pages in a page directory with specific characteristics L:387-428
+// Count pages in a page directory with specific characteristics
 int
 countpages(pde_t *pgdir, int check_cow, int check_writable)
 {
