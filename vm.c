@@ -385,6 +385,48 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
+// Count pages in a page directory with specific characteristics L:387-428
+int
+countpages(pde_t *pgdir, int check_cow, int check_writable)
+{
+  int count = 0;
+  pte_t *pte;
+  uint i;
+  
+  // Walk through all user virtual addresses
+  for(i = 0; i < KERNBASE; i += PGSIZE) {
+    pte = walkpgdir(pgdir, (void*)i, 0);
+    
+    // Check if page is present and accessible to user
+    if(pte && (*pte & PTE_P) && (*pte & PTE_U)) {
+      if(check_writable && (*pte & PTE_W))
+        count++;
+      else if(!check_writable)
+        count++;
+    }
+  }
+  
+  return count;
+}
+
+// Get memory statistics for a process
+void
+getmemstats(struct proc *p, int *shared, int *private_pg, int *modified)
+{
+  *shared = 0;          // Without COW, nothing is shared
+  *private_pg = 0;
+  *modified = 0;
+  
+  if(p->pgdir == 0)
+    return;
+    
+  // Count all present user pages as private (no COW yet)
+  *private_pg = countpages(p->pgdir, 0, 0);
+  
+  // Count writable pages as modified
+  *modified = countpages(p->pgdir, 0, 1);
+}
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!

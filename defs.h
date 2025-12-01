@@ -186,6 +186,8 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+int             countpages(pde_t*, int, int); // for the function call of "countpages" & "getmemstats"
+void            getmemstats(struct proc*, int*, int*, int*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
