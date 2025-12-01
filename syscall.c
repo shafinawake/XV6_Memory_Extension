@@ -145,3 +145,28 @@ syscall(void)
     curproc->tf->eax = -1;
   }
 }
+//Impplemeting this function for "System Call Implementtion" L:1480-172
+int
+sys_memstats(void)
+{
+  struct proc *p = myproc();
+  int shared, private_pg, modified;
+  
+  // Get memory statistics
+  getmemstats(p, &shared, &private_pg, &modified);
+  
+  // Print formatted output
+  cprintf("=== Child Memory Divergence Tracker (CMDT) ===\n");
+  cprintf("Process: %s (PID: %d)\n", p->name, p->pid);
+  
+  if(p->parent_pid > 0)
+    cprintf("Parent PID: %d\n", p->parent_pid);
+    
+  cprintf("Shared pages:   %d\n", shared);
+  cprintf("Private pages:  %d\n", private_pg);
+  cprintf("Modified pages: %d\n", modified);
+  cprintf("Total pages:    %d\n", shared + private_pg);
+  cprintf("===========================================\n");
+  
+  return 0;
+}
