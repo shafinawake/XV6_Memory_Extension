@@ -183,6 +183,7 @@ UPROGS=\
 	_custom\
 	_zombie\
 	_memtest\
+	_cowtest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
