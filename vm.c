@@ -373,22 +373,32 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 {
   char *buf, *pa0;
   uint n, va0;
-  pte_t *pte;  // ADD THIS
+  pte_t *pte;
 
   buf = (char*)p;
   while(len > 0){
     va0 = (uint)PGROUNDDOWN(va);
     
-    // ADD THIS BLOCK - Check for COW page before writing
+    // Check for COW page before writing
     pte = walkpgdir(pgdir, (void*)va0, 0);
     if(pte && (*pte & PTE_COW)) {
       if(cowhandler(pgdir, va0) < 0)
         return -1;
     }
-    // END NEW BLOCK
-  }  
-}    
-pa0 = uva2ka(pgdir, (char*)va0);
+    
+    pa0 = uva2ka(pgdir, (char*)va0);
+    if(pa0 == 0)
+      return -1;
+    n = PGSIZE - (va - va0);
+    if(n > len)
+      n = len;
+    memmove(pa0 + (va - va0), buf, n);
+    len -= n;
+    buf += n;
+    va = va0 + PGSIZE;
+  }
+  return 0;
+}
 
 // Count pages in a page directory with specific characteristics L:387-428
 // Count pages in a page directory with specific characteristics

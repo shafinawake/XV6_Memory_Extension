@@ -87,22 +87,26 @@ trap(struct trapframe *tf)
       panic("trap");
     }
     
-    // ADD THIS BLOCK - Handle page faults for COW
+    // Handle page faults for COW
     if(tf->trapno == T_PGFLT) {
       uint va = rcr2();  // Get faulting virtual address
       
       // Try to handle as COW page fault
       if(cowhandler(myproc()->pgdir, va) == 0) {
         // Successfully handled COW fault
-        break;  // Return to user space
+        break;
       }
     }
-    // END NEW BLOCK
     
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
             myproc()->pid, myproc()->name, tf->trapno,
+            tf->err, cpuid(), tf->eip, rcr2());
+    myproc()->killed = 1;
+    break;
+  }   
+
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
