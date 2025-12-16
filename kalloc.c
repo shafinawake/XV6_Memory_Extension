@@ -13,6 +13,11 @@ void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
                    // defined by the kernel linker script in kernel.ld
 
+struct {
+  struct spinlock lock;
+  int count[PHYSTOP / PGSIZE];  // Reference count for each physical page
+} pageref;
+
 struct run {
   struct run *next;
 };
