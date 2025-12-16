@@ -74,16 +74,18 @@ kfree(char *v)
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 
+  // Only free if reference count reaches 0
+  if(kderefpage(v) > 0)  // ADD THIS
+    return;               // ADD THIS
+
   // Fill with junk to catch dangling refs.
   memset(v, 1, PGSIZE);
-
-  if(kmem.use_lock)
-    acquire(&kmem.lock);
   r = (struct run*)v;
+
+  acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
-  if(kmem.use_lock)
-    release(&kmem.lock);
+  release(&kmem.lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -102,13 +104,13 @@ kalloc(void)
 
   if(r) {
     memset((char*)r, 5, PGSIZE);  // Fill with junk
-    krefpage((char*)r);  // ADD THIS - Initialize refcount to 1
+    krefpage((char*)r);  // To initialize refcount to 1
   }
   
   return (char*)r;
 }
 
-// Increment reference count for a physical page
+// To increment reference count for a physical page
 void
 krefpage(void *pa)
 {
@@ -123,7 +125,7 @@ krefpage(void *pa)
   release(&pageref.lock);
 }
 
-// Decrement reference count and return new count
+// To decrement reference count and return new count
 int
 kderefpage(void *pa)
 {
@@ -143,7 +145,7 @@ kderefpage(void *pa)
   return count;
 }
 
-// Get current reference count
+// Getting current reference count
 int
 kgetrefcount(void *pa)
 {
