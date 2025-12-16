@@ -79,21 +79,30 @@ trap(struct trapframe *tf)
     break;
 
   //PAGEBREAK: 13
-  default:
+default:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
     }
+    
+    // ADD THIS BLOCK - Handle page faults for COW
+    if(tf->trapno == T_PGFLT) {
+      uint va = rcr2();  // Get faulting virtual address
+      
+      // Try to handle as COW page fault
+      if(cowhandler(myproc()->pgdir, va) == 0) {
+        // Successfully handled COW fault
+        break;  // Return to user space
+      }
+    }
+    // END NEW BLOCK
+    
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
             myproc()->pid, myproc()->name, tf->trapno,
-            tf->err, cpuid(), tf->eip, rcr2());
-    myproc()->killed = 1;
-  }
-
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
