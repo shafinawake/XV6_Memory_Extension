@@ -33,11 +33,16 @@ struct {
 // the pages mapped by entrypgdir on free list.
 // 2. main() calls kinit2() with the rest of the physical pages
 // after installing a full page table that maps them on all cores.
+
 void
 kinit1(void *vstart, void *vend)
 {
   initlock(&kmem.lock, "kmem");
-  kmem.use_lock = 0;
+  initlock(&pageref.lock, "pageref");  // ADD THIS
+  
+  // Initialize all reference counts to 0
+  memset(pageref.count, 0, sizeof(pageref.count));  // ADD THIS
+  
   freerange(vstart, vend);
 }
 
