@@ -94,13 +94,70 @@ kalloc(void)
 {
   struct run *r;
 
-  if(kmem.use_lock)
-    acquire(&kmem.lock);
+  acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
     kmem.freelist = r->next;
-  if(kmem.use_lock)
-    release(&kmem.lock);
+  release(&kmem.lock);
+
+  if(r) {
+    memset((char*)r, 5, PGSIZE);  // Fill with junk
+    krefpage((char*)r);  // ADD THIS - Initialize refcount to 1
+  }
+  
   return (char*)r;
+}
+
+// Increment reference count for a physical page
+void
+krefpage(void *pa)
+{
+  uint idx;
+  
+  if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
+    return;
+    
+  acquire(&pageref.lock);
+  idx = V2P(pa) / PGSIZE;
+  pageref.count[idx]++;
+  release(&pageref.lock);
+}
+
+// Decrement reference count and return new count
+int
+kderefpage(void *pa)
+{
+  uint idx;
+  int count;
+  
+  if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
+    return 0;
+    
+  acquire(&pageref.lock);
+  idx = V2P(pa) / PGSIZE;
+  if(pageref.count[idx] > 0)
+    pageref.count[idx]--;
+  count = pageref.count[idx];
+  release(&pageref.lock);
+  
+  return count;
+}
+
+// Get current reference count
+int
+kgetrefcount(void *pa)
+{
+  uint idx;
+  int count;
+  
+  if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
+    return 0;
+    
+  acquire(&pageref.lock);
+  idx = V2P(pa) / PGSIZE;
+  count = pageref.count[idx];
+  release(&pageref.lock);
+  
+  return count;
 }
 
