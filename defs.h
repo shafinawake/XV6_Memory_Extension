@@ -68,7 +68,9 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
-
+void            krefpage(void*);          // To increment reference count
+int             kderefpage(void*);   
+int             kgetrefcount(void*);     // To decrement reference count and return new count
 // kbd.c
 void            kbdintr(void);
 
@@ -188,6 +190,7 @@ int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             countpages(pde_t*, int, int); // for the function call of "countpages" & "getmemstats"
 void            getmemstats(struct proc*, int*, int*, int*);
+int             cowhandler(pde_t*, uint);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
