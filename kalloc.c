@@ -18,6 +18,15 @@ struct {
   int count[PHYSTOP / PGSIZE];  // Reference count for each physical page
 } pageref;
 
+//Helper to get safe index from physical address
+static int
+pa2idx(uint pa)
+{
+  if(pa < (uint)V2P(end) || pa >= PHYSTOP)
+    return -1;
+  return pa / PGSIZE;
+}
+
 struct run {
   struct run *next;
 };
@@ -114,13 +123,16 @@ kalloc(void)
 void
 krefpage(void *pa)
 {
-  uint idx;
+  int idx;
   
   if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
     return;
+  
+  idx = pa2idx(V2P(pa));
+  if(idx < 0 || idx >= PHYSTOP / PGSIZE)
+    return;
     
   acquire(&pageref.lock);
-  idx = V2P(pa) / PGSIZE;
   pageref.count[idx]++;
   release(&pageref.lock);
 }
@@ -129,14 +141,17 @@ krefpage(void *pa)
 int
 kderefpage(void *pa)
 {
-  uint idx;
+  int idx;
   int count;
   
   if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
     return 0;
+  
+  idx = pa2idx(V2P(pa));
+  if(idx < 0 || idx >= PHYSTOP / PGSIZE)
+    return 0;
     
   acquire(&pageref.lock);
-  idx = V2P(pa) / PGSIZE;
   if(pageref.count[idx] > 0)
     pageref.count[idx]--;
   count = pageref.count[idx];
@@ -149,17 +164,19 @@ kderefpage(void *pa)
 int
 kgetrefcount(void *pa)
 {
-  uint idx;
+  int idx;
   int count;
   
   if((uint)pa % PGSIZE || (uint)pa < KERNBASE || (uint)pa >= PHYSTOP)
     return 0;
+  
+  idx = pa2idx(V2P(pa));
+  if(idx < 0 || idx >= PHYSTOP / PGSIZE)
+    return 0;
     
   acquire(&pageref.lock);
-  idx = V2P(pa) / PGSIZE;
   count = pageref.count[idx];
   release(&pageref.lock);
   
   return count;
 }
-
