@@ -22,7 +22,7 @@ test_simple_cow()
     memstats();
     
     printf(1, "\n[CHILD] Writing one byte to trigger COW...\n");
-    char *ptr = (char*)0x3000;
+    volatile char *ptr = (char*)0x3000;
     *ptr = 'X';
     
     printf(1, "\n[CHILD] After write:\n");
@@ -40,10 +40,11 @@ test_simple_cow()
 void
 test_multiple_pages()
 {
+  printf(1, "\n\n================================================\n");
   printf(1, "  TEST 2: Multiple Page Writes\n");
-  printf(1, "====================================\n\n");
+  printf(1, "================================================\n\n");
   
-  char buffer[8192];  // 2 pages
+  static char buffer[8192];  // 2 pages
   int i;
   for(i = 0; i < 8192; i++)
     buffer[i] = 'A';
@@ -80,10 +81,11 @@ test_multiple_pages()
 void
 test_read_only()
 {
+  printf(1, "\n\n================================================\n");
   printf(1, "  TEST 3: Read-Only (No COW Trigger)\n");
-  printf(1, "=========================================\n\n");
+  printf(1, "================================================\n\n");
   
-  char buffer[4096];
+  static char buffer[4096];
   int i;
   for(i = 0; i < 4096; i++)
     buffer[i] = 'R';
@@ -117,11 +119,18 @@ test_read_only()
 void
 test_fork_exec()
 {
+  printf(1, "\n\n================================================\n");
   printf(1, "  TEST 4: Fork then Exec (COW Benefit)\n");
-  printf(1, "===========================================\n\n");
+  printf(1, "================================================\n\n");
   
   char *buf = malloc(16384);  // 4 pages
   int i;
+  
+  if(buf == 0) {
+    printf(1, "ERROR: malloc failed\n");
+    exit();
+  }
+  
   for(i = 0; i < 16384; i++)
     buf[i] = 'B';
   
@@ -132,6 +141,7 @@ test_fork_exec()
   
   if(pid < 0) {
     printf(1, "ERROR: fork failed\n");
+    free(buf);
     exit();
   }
   
@@ -175,6 +185,7 @@ main(int argc, char *argv[])
   printf(1, "\n\n");
   printf(1, "================================================\n");
   printf(1, "  All COW Tests Completed Successfully\n");
+  printf(1, "================================================\n\n");
   
   exit();
 }
