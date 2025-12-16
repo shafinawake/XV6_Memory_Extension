@@ -318,30 +318,36 @@ copyuvm(pde_t *pgdir, uint sz)
   pde_t *d;
   pte_t *pte;
   uint pa, i, flags;
-  char *mem;
 
   if((d = setupkvm()) == 0)
     return 0;
+    
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
+      
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto bad;
-    memmove(mem, (char*)P2V(pa), PGSIZE);
-    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
-      kfree(mem);
-      goto bad;
+    
+    // COW: If page is writable, mark as COW and remove write permission
+    if(flags & PTE_W) {
+      flags = (flags & ~PTE_W) | PTE_COW;  // Remove W, add COW
+      *pte = pa | flags;                    // Update parent's PTE
     }
+    
+    // Map same physical page in child
+    if(mappages(d, (void*)i, PGSIZE, V2P(P2V(pa)), flags) < 0) {
+      freevm(d);
+      return 0;
+    }
+    
+    // Increment reference count (page is now shared)
+    krefpage(P2V(pa));
   }
+  
   return d;
-
-bad:
-  freevm(d);
-  return 0;
 }
 
 //PAGEBREAK!
@@ -394,16 +400,16 @@ countpages(pde_t *pgdir, int check_cow, int check_writable)
   pte_t *pte;
   uint i;
   
-  // Walk through all user virtual addresses
   for(i = 0; i < KERNBASE; i += PGSIZE) {
     pte = walkpgdir(pgdir, (void*)i, 0);
     
-    // Check if page is present and accessible to user
     if(pte && (*pte & PTE_P) && (*pte & PTE_U)) {
-      if(check_writable && (*pte & PTE_W))
-        count++;
-      else if(!check_writable)
-        count++;
+      if(check_cow && (*pte & PTE_COW))
+        count++;  // Count COW pages (shared)
+      else if(check_writable && (*pte & PTE_W) && !(*pte & PTE_COW))
+        count++;  // Count writable non-COW pages (private)
+      else if(!check_cow && !check_writable)
+        count++;  // Count all pages
     }
   }
   
