@@ -211,6 +211,9 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  // Track parent info for CMDT
+  np->parent_pid = curproc->pid;
+  np->fork_time = ticks;
 
   acquire(&ptable.lock);
 
@@ -531,4 +534,11 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+//printing the system call
+int 
+demo(void)
+{
+  cprintf("Demo");
+  return 22;
 }
