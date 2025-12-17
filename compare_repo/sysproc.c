@@ -89,9 +89,3 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-// return value of demo
-int 
-sys_demo(void)
-{
-  return 22;
-}

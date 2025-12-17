@@ -68,8 +68,7 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
-void            krefpage(void*);
-int             kgetrefcount(void*);
+
 // kbd.c
 void            kbdintr(void);
 
@@ -121,7 +120,6 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int            demo(void); //demo added
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -187,9 +185,6 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
-int             countpages(pde_t*, int, int); // for the function call of "countpages" & "getmemstats"
-void            getmemstats(struct proc*, int*, int*, int*);
-int             cowhandler(pde_t*, uint);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
