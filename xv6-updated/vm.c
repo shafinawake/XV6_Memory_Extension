@@ -271,8 +271,15 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
-      kfree(v);
-      *pte = 0;
+      
+      // If it's a COW page, just remove the mapping
+      // Don't free the physical page (might be shared)
+      if(*pte & PTE_COW) {
+        *pte = 0;
+      } else {
+        kfree(v);
+        *pte = 0;
+      }
     }
   }
   return newsz;
@@ -312,6 +319,10 @@ clearpteu(pde_t *pgdir, char *uva)
 
 // Given a parent process's page table, create a copy
 // of it for a child.
+// Given a parent process's page table, create a copy
+// of it for a child.
+// Given a parent process's page table, create a copy
+// of it for a child.
 pde_t*
 copyuvm(pde_t *pgdir, uint sz)
 {
@@ -321,33 +332,30 @@ copyuvm(pde_t *pgdir, uint sz)
 
   if((d = setupkvm()) == 0)
     return 0;
-    
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
-      
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     
-    // COW: If page is writable, mark as COW and remove write permission
+    // COW optimization: share pages, mark read-only
     if(flags & PTE_W) {
-      flags = (flags & ~PTE_W) | PTE_COW;  // Remove W, add COW
-      *pte = pa | flags;                    // Update parent's PTE
+      // Mark as COW in both parent and child
+      flags = (flags & ~PTE_W) | PTE_COW;
+      *pte = pa | flags;
     }
     
-    // Map same physical page in child
-    if(mappages(d, (void*)i, PGSIZE, V2P(P2V(pa)), flags) < 0) {
+    if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0) {
       freevm(d);
       return 0;
     }
-    
-    // Increment reference count (page is now shared)
-    krefpage(P2V(pa));
   }
   
+  lcr3(V2P(pgdir)); // Flush TLB
   return d;
+
 }
 
 //PAGEBREAK!
@@ -365,6 +373,9 @@ uva2ka(pde_t *pgdir, char *uva)
   return (char*)P2V(PTE_ADDR(*pte));
 }
 
+// Copy len bytes from p to user address va in page table pgdir.
+// Most useful when pgdir is not the current page table.
+// uva2ka ensures this only works for PTE_U pages.
 // Copy len bytes from p to user address va in page table pgdir.
 // Most useful when pgdir is not the current page table.
 // uva2ka ensures this only works for PTE_U pages.
@@ -402,29 +413,44 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 
 // Count pages in a page directory with specific characteristics L:387-428
 // Count pages in a page directory with specific characteristics
+// Count pages in a page directory with specific characteristics
 int
 countpages(pde_t *pgdir, int check_cow, int check_writable)
 {
   int count = 0;
   pte_t *pte;
   uint i;
+  pde_t *pde;
   
-  for(i = 0; i < KERNBASE; i += PGSIZE) {
-    pte = walkpgdir(pgdir, (void*)i, 0);
+  // Walk through valid page directory entries
+  for(i = 0; i < NPDENTRIES && i < (KERNBASE >> PDXSHIFT); i++) {
+    pde = &pgdir[i];
     
-    if(pte && (*pte & PTE_P) && (*pte & PTE_U)) {
-      if(check_cow && (*pte & PTE_COW))
-        count++;  // Count COW pages (shared)
-      else if(check_writable && (*pte & PTE_W) && !(*pte & PTE_COW))
-        count++;  // Count writable non-COW pages (private)
-      else if(!check_cow && !check_writable)
-        count++;  // Count all pages
+    if(!(*pde & PTE_P))
+      continue;
+      
+    pte_t *pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+    
+    // Walk through page table entries
+    int j;
+    for(j = 0; j < NPTENTRIES; j++) {
+      pte = &pgtab[j];
+      
+      if((*pte & PTE_P) && (*pte & PTE_U)) {
+        if(check_cow && (*pte & PTE_COW))
+          count++;
+        else if(check_writable && (*pte & PTE_W) && !(*pte & PTE_COW))
+          count++;
+        else if(!check_cow && !check_writable)
+          count++;
+      }
     }
   }
   
   return count;
 }
 
+// Get memory statistics for a process
 // Get memory statistics for a process
 void
 getmemstats(struct proc *p, int *shared, int *private_pg, int *modified)
@@ -442,7 +468,7 @@ getmemstats(struct proc *p, int *shared, int *private_pg, int *modified)
   // Count writable non-COW pages as private
   *private_pg = countpages(p->pgdir, 0, 1);
   
-  // Modified pages = private pages (approximation)
+  // Modified pages = private pages
   *modified = *private_pg;
 }
 
@@ -454,51 +480,46 @@ getmemstats(struct proc *p, int *shared, int *private_pg, int *modified)
 // Blank page.
 
 // Handle Copy-On-Write page fault
+// Handle Copy-On-Write page fault
+// Handle Copy-On-Write page fault
 int
 cowhandler(pde_t *pgdir, uint va)
 {
   pte_t *pte;
-  uint pa, flags;
+  uint pa;
+  uint flags;
   char *mem;
   
-  // Validate address
   if(va >= KERNBASE)
     return -1;
     
-  // Get PTE for faulting address
   pte = walkpgdir(pgdir, (void*)va, 0);
-  if(!pte)
+  if(pte == 0)
     return -1;
   if(!(*pte & PTE_P))
     return -1;
   if(!(*pte & PTE_U))
     return -1;
     
-  // Check if this is actually a COW page
+  // Check if this is a COW page
   if(!(*pte & PTE_COW))
     return -1;
     
-  // Get physical address and flags
+  // Get physical address and allocate new page
   pa = PTE_ADDR(*pte);
-  flags = PTE_FLAGS(*pte);
-  
-  // Allocate new page
-  if((mem = kalloc()) == 0)
+  mem = kalloc();
+  if(mem == 0)
     return -1;
     
-  // Copy content from old page to new page
+  // Copy old page to new page
   memmove(mem, (char*)P2V(pa), PGSIZE);
   
-  // Update PTE: remove COW flag, add write permission
+  // Update PTE: make it writable, remove COW flag
+  flags = PTE_FLAGS(*pte);
   flags = (flags & ~PTE_COW) | PTE_W;
   *pte = V2P(mem) | flags;
   
-  // Decrease reference count of old page (might free it)
-  kfree(P2V(pa));
-  
-  // Flush TLB for this address
-  lcr3(V2P(pgdir));
+  lcr3(V2P(pgdir)); // Flush TLB
   
   return 0;
 }
-

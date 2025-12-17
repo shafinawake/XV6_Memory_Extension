@@ -68,9 +68,8 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
-void            krefpage(void*);          // To increment reference count
-int             kderefpage(void*);   
-int             kgetrefcount(void*);     // To decrement reference count and return new count
+void            krefpage(void*);
+int             kgetrefcount(void*);
 // kbd.c
 void            kbdintr(void);
 
