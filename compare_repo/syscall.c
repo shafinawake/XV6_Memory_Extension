@@ -103,6 +103,8 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
+extern int sys_demo(void);
+extern int sys_memstats(void); //extern declaration for memstats
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -126,6 +128,8 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_demo]   sys_demo, //demo
+[SYS_memstats] sys_memstats, //memstats
 };
 
 void
@@ -142,4 +146,29 @@ syscall(void)
             curproc->pid, curproc->name, num);
     curproc->tf->eax = -1;
   }
+}
+//Impplemeting this function for "System Call Implementtion" L:1480-172
+int
+sys_memstats(void)
+{
+  struct proc *p = myproc();
+  int shared, private_pg, modified;
+  
+  // Get memory statistics
+  getmemstats(p, &shared, &private_pg, &modified);
+  
+  // Print formatted output
+  cprintf("Child Memory Divergence Tracker (CMDT)\n");
+  cprintf("Process: %s (PID: %d)\n", p->name, p->pid);
+  
+  if(p->parent_pid > 0)
+    cprintf("Parent PID: %d\n", p->parent_pid);
+    
+  cprintf("Shared pages:   %d\n", shared);
+  cprintf("Private pages:  %d\n", private_pg);
+  cprintf("Modified pages: %d\n", modified);
+  cprintf("Total pages:    %d\n", shared + private_pg);
+  cprintf("\n");
+  
+  return 0;
 }
