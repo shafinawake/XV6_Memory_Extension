@@ -2,6 +2,7 @@ To run it you must open CMD in WSL
 then go to the updated directory to run the implemented version of the project 
 
 $ cd xv6-public/xv6-updated/
+
 after that write this commands 
 
 $make clean 
@@ -15,7 +16,7 @@ For Task-1
 
 $memtest
 
-For Task -2 
+For Task-2 
 
 $cowtest
 
