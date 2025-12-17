@@ -5,7 +5,7 @@
 int
 main(int argc, char *argv[])
 {
-  printf(1, "\n=== CMDT Test Program (Task 2 - WITH COW) ===\n\n");
+  printf(1, "\n=== CMDT Test Program (Task 1 - No COW) ===\n\n");
   
   printf(1, "Step 1: Parent before fork\n");
   printf(1, "----------------------------\n");
@@ -19,22 +19,22 @@ main(int argc, char *argv[])
   }
   
   if(pid == 0) {
+    // Child process
     printf(1, "\nStep 2: Child immediately after fork\n");
     printf(1, "--------------------------------------\n");
-    printf(1, "Expected: Pages should be SHARED now!\n\n");
+    printf(1, "NOTE: Without COW, all pages are copied (private)\n\n");
     memstats();
     
-    printf(1, "\nStep 3: Child allocating 4KB buffer\n");
-    printf(1, "-------------------------------------\n");
+    printf(1, "\nStep 3: Child allocating and writing 8KB buffer\n");
+    printf(1, "-------------------------------------------------\n");
     
-    char *buf = malloc(4096);
+    char *buf = malloc(8192);
     if(buf == 0) {
       printf(1, "malloc failed\n");
       exit();
     }
     
-    int i;
-    for(i = 0; i < 4096; i++) {
+    for(int i = 0; i < 8192; i++) {
       buf[i] = 'X';
     }
     
@@ -43,20 +43,19 @@ main(int argc, char *argv[])
     memstats();
     
     free(buf);
-    printf(1, "\n=== Child exiting ===\n");
     exit();
     
   } else {
+    // Parent process
     wait();
     
     printf(1, "\nStep 5: Parent after child exits\n");
     printf(1, "----------------------------------\n");
     memstats();
     
-    printf(1, "\n=== Task 2 Complete ===\n");
-    printf(1, "SUCCESS: COW is working!\n");
-    printf(1, "- Pages were shared after fork\n");
-    printf(1, "- Pages became private on write\n\n");
+    printf(1, "\n=== Task 1 Complete ===\n");
+    printf(1, "Observation: All pages are private (copied at fork)\n");
+    printf(1, "This demonstrates the PROBLEM that Task 2 (COW) will solve.\n\n");
   }
   
   exit();
